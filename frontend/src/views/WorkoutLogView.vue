@@ -148,16 +148,28 @@
         </div>
         <div class="picker-list">
           <div v-if="pickerResults.length === 0" class="picker-empty">No exercises match.</div>
-          <button
-            v-for="ex in pickerResults" :key="ex._id"
-            type="button"
-            class="picker-item"
-            :class="{ selected: form.exercises[pickerIdx]?.exercise === ex._id }"
-            @click="pickExercise(ex)"
-          >
-            <span class="picker-item-name">{{ ex.name }}</span>
-            <span class="picker-item-meta">{{ capitalize(ex.muscleGroup) }}</span>
-          </button>
+          <div v-for="ex in pickerResults" :key="ex._id" class="picker-entry">
+            <div class="picker-row">
+              <button
+                type="button"
+                class="picker-item"
+                :class="{ selected: form.exercises[pickerIdx]?.exercise === ex._id }"
+                @click="pickExercise(ex)"
+              >
+                <span class="picker-item-name">{{ ex.name }}</span>
+                <span class="picker-item-meta">{{ capitalize(ex.muscleGroup) }}</span>
+              </button>
+              <button
+                v-if="ex.description"
+                type="button"
+                class="info-btn"
+                :class="{ active: expandedExId === ex._id }"
+                @click.stop="expandedExId = expandedExId === ex._id ? null : ex._id"
+                title="Show description"
+              >ℹ</button>
+            </div>
+            <div v-if="expandedExId === ex._id" class="ex-desc">{{ ex.description }}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -172,6 +184,7 @@ const capitalize    = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const pickerIdx     = ref(null);
 const pickerSearch  = ref('');
 const pickerMuscle  = ref('');
+const expandedExId  = ref(null);
 const pickerResults = computed(() => {
   let list = allExercises.value;
   if (pickerMuscle.value) list = list.filter(ex => ex.muscleGroup === pickerMuscle.value);
@@ -179,7 +192,7 @@ const pickerResults = computed(() => {
   if (q) list = list.filter(ex => ex.name.toLowerCase().includes(q));
   return list;
 });
-function openPicker(eIdx) { pickerIdx.value = eIdx; pickerSearch.value = ''; pickerMuscle.value = ''; }
+function openPicker(eIdx) { pickerIdx.value = eIdx; pickerSearch.value = ''; pickerMuscle.value = ''; expandedExId.value = null; }
 function pickExercise(ex) { form.exercises[pickerIdx.value].exercise = ex._id; pickerIdx.value = null; }
 function exerciseName(id) { return allExercises.value.find(ex => ex._id === id)?.name ?? id; }
 import { useRouter, useRoute } from 'vue-router';
@@ -440,4 +453,20 @@ onMounted(async () => {
 .picker-item.selected { background: #e8fff0; color: #1a5c00; }
 .picker-item-name { font-size: 0.875rem; font-weight: 500; }
 .picker-item-meta { font-size: 0.75rem; color: var(--text-3); flex-shrink: 0; }
+.picker-entry { border-radius: 6px; overflow: hidden; }
+.picker-row { display: flex; align-items: center; }
+.picker-row .picker-item { flex: 1; border-radius: 0; }
+.info-btn {
+  flex-shrink: 0; width: 2rem; height: 2rem; padding: 0;
+  background: none; border: none; color: var(--text-3);
+  font-size: 0.875rem; cursor: pointer; border-radius: 6px;
+  transition: background 0.1s, color 0.1s;
+}
+.info-btn:hover { background: var(--surface-alt); color: var(--text); }
+.info-btn.active { color: #7ffc03; }
+.ex-desc {
+  font-size: 0.8rem; color: var(--text-2); line-height: 1.55;
+  padding: 0.625rem 0.875rem; background: var(--surface-alt);
+  border-top: 1px solid var(--border);
+}
 </style>
