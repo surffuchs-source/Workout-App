@@ -1,0 +1,23 @@
+module.exports = [
+  { id: 'first_session',       icon: '🏋️', name: 'First Steps',        description: 'Complete your first workout session' },
+  { id: 'sessions_3',          icon: '🔱', name: 'Hat Trick',           description: 'Complete 3 workout sessions' },
+  { id: 'sessions_10',         icon: '🔥', name: 'On a Roll',           description: 'Complete 10 workout sessions' },
+  { id: 'sessions_25',         icon: '💪', name: 'Dedicated',           description: 'Complete 25 workout sessions' },
+  { id: 'sessions_50',         icon: '⚡', name: 'Half Century',        description: 'Complete 50 workout sessions' },
+  { id: 'sessions_100',        icon: '🏆', name: 'Century Club',        description: 'Complete 100 workout sessions' },
+  { id: 'exercises_5',         icon: '🎯', name: 'Variety Pack',        description: 'Use 5 different exercises across your logs' },
+  { id: 'exercises_10',        icon: '🌟', name: 'Well Rounded',        description: 'Use 10 different exercises across your logs' },
+  { id: 'heavy_100kg',         icon: '🪨', name: 'Heavy Lifter',        description: 'Log a single set with 100 kg or more' },
+  { id: 'marathon_session',    icon: '⏱️', name: 'Marathon',            description: 'Log a session lasting 90 minutes or more' },
+  { id: 'early_bird',          icon: '🌅', name: 'Early Bird',          description: 'Start a workout before 07:00' },
+  { id: 'night_owl',           icon: '🦉', name: 'Night Owl',           description: 'Start a workout at 21:00 or later' },
+  { id: 'volume_50sets',       icon: '📊', name: 'Volume King',         description: 'Complete 50 or more sets in a single session' },
+  // Cardio
+  { id: 'cardio_first',        icon: '🏃', name: 'First Stride',        description: 'Complete your first cardio set' },
+  { id: 'cardio_sessions_5',   icon: '🚴', name: 'Cardio Habit',        description: 'Log 5 sessions with at least one cardio exercise' },
+  { id: 'cardio_sessions_25',  icon: '🌬️', name: 'Iron Lungs',          description: 'Log 25 sessions with at least one cardio exercise' },
+  { id: 'cardio_5km',          icon: '🥇', name: '5K Club',             description: 'Log a single cardio set covering 5 km or more' },
+  { id: 'cardio_halfmarathon', icon: '🏅', name: 'Half Marathoner',     description: 'Log a single cardio set covering 21.1 km or more' },
+  { id: 'cardio_1hour',        icon: '⏳', name: 'Endurance Beast',     description: 'Log a single cardio set lasting 1 hour or more' },
+  { id: 'cardio_100km_total',  icon: '🌍', name: 'Century Rider',       description: 'Log 100 km total distance across all cardio sessions' },
+];
