@@ -40,18 +40,17 @@
       <div class="row-2">
         <div class="form-group">
           <label>Exercise *</label>
-          <div class="ex-filter-row">
-            <select v-model="muscleFilters[eIdx]" class="muscle-filter">
-              <option value="">All muscles</option>
-              <option v-for="g in muscleGroups" :key="g" :value="g">{{ capitalize(g) }}</option>
-            </select>
-            <select v-model="entry.exercise" required class="ex-select">
-              <option value="" disabled>Select exercise...</option>
-              <option v-for="ex in filteredExercises(eIdx)" :key="ex._id" :value="ex._id">
-                {{ ex.name }}
-              </option>
-            </select>
-          </div>
+          <button
+            type="button"
+            class="picker-trigger"
+            :class="{ placeholder: !entry.exercise }"
+            @click="openPicker(eIdx)"
+          >
+            {{ entry.exercise ? exerciseName(entry.exercise) : 'Choose exercise...' }}
+            <span class="picker-arrow">▾</span>
+          </button>
+          <!-- hidden input to satisfy HTML5 required validation -->
+          <input type="text" :value="entry.exercise" required style="position:absolute;opacity:0;height:0;width:0;pointer-events:none" tabindex="-1" />
         </div>
         <div class="form-group">
           <label>Notes</label>
@@ -88,10 +87,54 @@
       </button>
     </div>
   </form>
+
+  <!-- Exercise picker popup -->
+  <Teleport to="body">
+    <div v-if="pickerIdx !== null" class="picker-overlay" @click.self="pickerIdx = null">
+      <div class="picker-modal">
+        <div class="picker-header">
+          <h3>Choose Exercise</h3>
+          <button type="button" class="picker-close" @click="pickerIdx = null">✕</button>
+        </div>
+
+        <div class="picker-filters">
+          <input
+            v-model="pickerSearch"
+            type="search"
+            placeholder="Search..."
+            class="picker-search"
+            autofocus
+          />
+          <div class="pills">
+            <button
+              v-for="g in ['', ...muscleGroups]" :key="g"
+              type="button"
+              :class="['pill', { active: pickerMuscle === g }]"
+              @click="pickerMuscle = g"
+            >{{ g === '' ? 'All' : capitalize(g) }}</button>
+          </div>
+        </div>
+
+        <div class="picker-list">
+          <div v-if="pickerResults.length === 0" class="picker-empty">No exercises match.</div>
+          <button
+            v-for="ex in pickerResults" :key="ex._id"
+            type="button"
+            class="picker-item"
+            :class="{ selected: form.exercises[pickerIdx]?.exercise === ex._id }"
+            @click="pickExercise(ex)"
+          >
+            <span class="picker-item-name">{{ ex.name }}</span>
+            <span class="picker-item-meta">{{ capitalize(ex.muscleGroup) }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { reactive, ref, computed } from 'vue';
 
 const props = defineProps({
   initialData:        Object,
@@ -101,16 +144,38 @@ const props = defineProps({
 });
 const emit = defineEmits(['submit', 'cancel']);
 
-const muscleGroups  = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'full body', 'cardio'];
-const muscleFilters = ref([]);
-const capitalize    = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const muscleGroups = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'full body', 'cardio'];
+const capitalize   = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function filteredExercises(eIdx) {
-  const g = muscleFilters.value[eIdx];
-  if (!g) return props.availableExercises;
-  return props.availableExercises.filter(ex => ex.muscleGroup === g);
+// Picker state
+const pickerIdx    = ref(null);
+const pickerSearch = ref('');
+const pickerMuscle = ref('');
+
+const pickerResults = computed(() => {
+  let list = props.availableExercises;
+  if (pickerMuscle.value) list = list.filter(ex => ex.muscleGroup === pickerMuscle.value);
+  const q = pickerSearch.value.trim().toLowerCase();
+  if (q) list = list.filter(ex => ex.name.toLowerCase().includes(q));
+  return list;
+});
+
+function openPicker(eIdx) {
+  pickerIdx.value    = eIdx;
+  pickerSearch.value = '';
+  pickerMuscle.value = '';
 }
 
+function pickExercise(ex) {
+  form.exercises[pickerIdx.value].exercise = ex._id;
+  pickerIdx.value = null;
+}
+
+function exerciseName(id) {
+  return props.availableExercises.find(ex => ex._id === id)?.name ?? id;
+}
+
+// Form
 function makeSet(n, prev) {
   return { setNumber: n, reps: prev?.reps ?? '', weightKg: prev?.weightKg ?? 0, restSeconds: prev?.restSeconds ?? 60 };
 }
@@ -133,16 +198,11 @@ const form = reactive({
   notes:           props.initialData?.notes           ?? '',
   exercises:       props.initialData?.exercises?.map(initEntry) ?? [],
 });
-muscleFilters.value = form.exercises.map(() => '');
 
-function addExercise() {
-  form.exercises.push(initEntry(null, form.exercises.length));
-  muscleFilters.value.push('');
-}
+function addExercise() { form.exercises.push(initEntry(null, form.exercises.length)); }
 function removeExercise(idx) {
   form.exercises.splice(idx, 1);
   form.exercises.forEach((e, i) => (e.order = i + 1));
-  muscleFilters.value.splice(idx, 1);
 }
 function addSet(eIdx) {
   const sets = form.exercises[eIdx].sets;
@@ -168,20 +228,70 @@ function handleSubmit() {
   text-align: center; color: #94a3b8; padding: 2rem;
   border: 2px dashed #e2e8f0; border-radius: 8px; margin-bottom: 1rem;
 }
-.exercise-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: #f8fafc; }
+.exercise-card { border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: var(--surface-alt); }
 .exercise-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-.exercise-label { font-weight: 700; font-size: 0.875rem; color: #475569; }
+.exercise-label { font-weight: 700; font-size: 0.875rem; color: var(--text-2); }
 .sets-header { display: flex; align-items: center; gap: 0.75rem; margin: 0.75rem 0 0.375rem; }
-.sets-label { font-size: 0.8125rem; font-weight: 600; color: #475569; }
+.sets-label { font-size: 0.8125rem; font-weight: 600; color: var(--text-2); }
 .sets-grid-head {
   display: grid; grid-template-columns: 2rem 1fr 1fr 1fr 2.5rem; gap: 0.5rem;
-  font-size: 0.75rem; font-weight: 600; color: #64748b;
+  font-size: 0.75rem; font-weight: 600; color: var(--text-3);
   margin-bottom: 0.375rem; padding: 0 0.125rem;
 }
 .set-row { display: grid; grid-template-columns: 2rem 1fr 1fr 1fr 2.5rem; gap: 0.5rem; align-items: center; margin-bottom: 0.375rem; }
-.set-num { font-size: 0.8125rem; font-weight: 600; color: #64748b; text-align: center; }
+.set-num { font-size: 0.8125rem; font-weight: 600; color: var(--text-3); text-align: center; }
 .actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
-.ex-filter-row { display: flex; flex-direction: column; gap: 0.375rem; }
-.muscle-filter { font-size: 0.75rem; color: var(--text-3); }
-.ex-select { flex: 1; }
+
+/* Picker trigger button */
+.picker-trigger {
+  width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center;
+  background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 0.5rem 0.75rem; font-size: 0.875rem; color: var(--text); cursor: pointer;
+  transition: border-color 0.15s;
+}
+.picker-trigger:hover { border-color: #7ffc03; }
+.picker-trigger.placeholder { color: var(--text-muted); }
+.picker-arrow { color: var(--text-3); font-size: 0.75rem; }
+
+/* Picker overlay */
+.picker-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 1rem;
+}
+.picker-modal {
+  background: var(--surface); border-radius: 10px;
+  width: 100%; max-width: 560px; max-height: 80vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.picker-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.picker-header h3 { font-size: 1rem; font-weight: 700; }
+.picker-close { background: none; border: none; font-size: 1rem; color: var(--text-3); cursor: pointer; padding: 0.25rem; }
+
+.picker-filters { padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 0.625rem; }
+.picker-search { width: 100%; }
+.pills { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.pill {
+  padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer;
+}
+.pill:hover { background: var(--surface-alt); }
+.pill.active { background: #7ffc03; color: #111827; border-color: #7ffc03; }
+
+.picker-list { overflow-y: auto; padding: 0.5rem; }
+.picker-empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.picker-item {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 0.625rem 0.875rem; border-radius: 6px; border: none;
+  background: transparent; text-align: left; cursor: pointer; color: var(--text);
+  transition: background 0.1s;
+}
+.picker-item:hover { background: var(--surface-alt); }
+.picker-item.selected { background: #f0fff0; color: #1a5c00; }
+.picker-item-name { font-size: 0.875rem; font-weight: 500; }
+.picker-item-meta { font-size: 0.75rem; color: var(--text-3); flex-shrink: 0; }
 </style>
