@@ -5,12 +5,22 @@
       <button class="btn-primary" @click="openCreate">+ New Exercise</button>
     </div>
 
-    <input
-      v-model="search"
-      class="search"
-      type="search"
-      placeholder="Search exercises..."
-    />
+    <div class="toolbar">
+      <input
+        v-model="search"
+        class="search"
+        type="search"
+        placeholder="Search exercises..."
+      />
+      <div class="pills">
+        <button
+          v-for="g in muscleGroups" :key="g"
+          :class="['pill', { active: muscleFilter === g }]"
+          type="button"
+          @click="muscleFilter = g"
+        >{{ g === '' ? 'All' : capitalize(g) }}</button>
+      </div>
+    </div>
 
     <p v-if="loadError" class="error">{{ loadError }}</p>
     <div v-if="loading && exercises.length === 0" class="empty">Loading...</div>
@@ -18,7 +28,7 @@
       No exercises yet. Create one to get started.
     </div>
     <div v-else-if="filtered.length === 0" class="empty">
-      No exercises match "{{ search }}".
+      No exercises match your filters.
     </div>
 
     <div v-else class="list">
@@ -60,12 +70,17 @@ import BaseModal    from '../components/BaseModal.vue';
 import ExerciseForm from '../components/ExerciseForm.vue';
 import { exercisesApi } from '../services/api.js';
 
-const exercises = ref([]);
-const search    = ref('');
-const filtered  = computed(() => {
+const exercises   = ref([]);
+const search      = ref('');
+const muscleFilter = ref('');
+const muscleGroups = ['', 'chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'full body', 'cardio'];
+
+const filtered = computed(() => {
+  let list = exercises.value;
+  if (muscleFilter.value) list = list.filter(ex => ex.muscleGroup === muscleFilter.value);
   const q = search.value.trim().toLowerCase();
-  if (!q) return exercises.value;
-  return exercises.value.filter(ex =>
+  if (!q) return list;
+  return list.filter(ex =>
     ex.name.toLowerCase().includes(q) ||
     ex.muscleGroup.toLowerCase().includes(q) ||
     ex.category.toLowerCase().includes(q)
@@ -122,7 +137,16 @@ onMounted(load);
 
 <style scoped>
 .view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-.search { margin-bottom: 1.25rem; max-width: 360px; }
+.toolbar { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.25rem; }
+.search { max-width: 360px; }
+.pills { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.pill {
+  padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.8125rem; font-weight: 500;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.pill:hover { background: var(--surface-alt); }
+.pill.active { background: #7ffc03; color: #111827; border-color: #7ffc03; }
 .view-header h1 { font-size: 1.5rem; font-weight: 800; }
 .empty { text-align: center; color: var(--text-muted); padding: 3rem; }
 .list { display: grid; gap: 0.75rem; }

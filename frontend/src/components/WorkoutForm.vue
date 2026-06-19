@@ -40,12 +40,18 @@
       <div class="row-2">
         <div class="form-group">
           <label>Exercise *</label>
-          <select v-model="entry.exercise" required>
-            <option value="" disabled>Select exercise...</option>
-            <option v-for="ex in availableExercises" :key="ex._id" :value="ex._id">
-              {{ ex.name }} ({{ ex.muscleGroup }})
-            </option>
-          </select>
+          <div class="ex-filter-row">
+            <select v-model="muscleFilters[eIdx]" class="muscle-filter">
+              <option value="">All muscles</option>
+              <option v-for="g in muscleGroups" :key="g" :value="g">{{ capitalize(g) }}</option>
+            </select>
+            <select v-model="entry.exercise" required class="ex-select">
+              <option value="" disabled>Select exercise...</option>
+              <option v-for="ex in filteredExercises(eIdx)" :key="ex._id" :value="ex._id">
+                {{ ex.name }}
+              </option>
+            </select>
+          </div>
         </div>
         <div class="form-group">
           <label>Notes</label>
@@ -85,7 +91,7 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue';
+import { reactive, ref } from 'vue';
 
 const props = defineProps({
   initialData:        Object,
@@ -94,6 +100,16 @@ const props = defineProps({
   error:              String,
 });
 const emit = defineEmits(['submit', 'cancel']);
+
+const muscleGroups  = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'full body', 'cardio'];
+const muscleFilters = ref([]);
+const capitalize    = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function filteredExercises(eIdx) {
+  const g = muscleFilters.value[eIdx];
+  if (!g) return props.availableExercises;
+  return props.availableExercises.filter(ex => ex.muscleGroup === g);
+}
 
 function makeSet(n, prev) {
   return { setNumber: n, reps: prev?.reps ?? '', weightKg: prev?.weightKg ?? 0, restSeconds: prev?.restSeconds ?? 60 };
@@ -117,13 +133,16 @@ const form = reactive({
   notes:           props.initialData?.notes           ?? '',
   exercises:       props.initialData?.exercises?.map(initEntry) ?? [],
 });
+muscleFilters.value = form.exercises.map(() => '');
 
 function addExercise() {
   form.exercises.push(initEntry(null, form.exercises.length));
+  muscleFilters.value.push('');
 }
 function removeExercise(idx) {
   form.exercises.splice(idx, 1);
   form.exercises.forEach((e, i) => (e.order = i + 1));
+  muscleFilters.value.splice(idx, 1);
 }
 function addSet(eIdx) {
   const sets = form.exercises[eIdx].sets;
@@ -162,4 +181,7 @@ function handleSubmit() {
 .set-row { display: grid; grid-template-columns: 2rem 1fr 1fr 1fr 2.5rem; gap: 0.5rem; align-items: center; margin-bottom: 0.375rem; }
 .set-num { font-size: 0.8125rem; font-weight: 600; color: #64748b; text-align: center; }
 .actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
+.ex-filter-row { display: flex; flex-direction: column; gap: 0.375rem; }
+.muscle-filter { font-size: 0.75rem; color: var(--text-3); }
+.ex-select { flex: 1; }
 </style>
