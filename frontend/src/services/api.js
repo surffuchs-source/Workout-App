@@ -48,3 +48,8 @@ export const achievementsApi = {
 export const newsApi = {
   list: () => http.get('/news'),
 };
+
+export const preferencesApi = {
+  get:    ()     => http.get('/preferences'),
+  update: (data) => http.put('/preferences', data),
+};

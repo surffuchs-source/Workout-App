@@ -171,7 +171,7 @@ import {
   PointElement, LineElement, ArcElement,
   Title, Tooltip, Legend, Filler,
 } from 'chart.js';
-import { workoutLogsApi, exercisesApi } from '../services/api.js';
+import { workoutLogsApi, exercisesApi, preferencesApi } from '../services/api.js';
 import { isDark } from '../services/useDark.js';
 
 ChartJS.register(
@@ -205,6 +205,19 @@ const cardDef = (id) => CARD_DEFS[id] ?? { wide: false };
 const stored    = localStorage.getItem('stats-card-order');
 const cardOrder = ref(stored ? JSON.parse(stored) : [...DEFAULT_ORDER]);
 
+async function loadPreferences() {
+  try {
+    const { data } = await preferencesApi.get();
+    if (data.statsCardOrder?.length) {
+      // Merge: keep any new cards not yet in the saved order
+      const saved    = data.statsCardOrder.filter(id => id in CARD_DEFS);
+      const newCards = DEFAULT_ORDER.filter(id => !saved.includes(id));
+      cardOrder.value = [...saved, ...newCards];
+      localStorage.setItem('stats-card-order', JSON.stringify(cardOrder.value));
+    }
+  } catch { /* silently fall back to localStorage */ }
+}
+
 const dragSrc    = ref(null);
 const dragTarget = ref(null);
 
@@ -223,7 +236,9 @@ function onDragOver(id) {
 function onDragEnd() {
   dragSrc.value    = null;
   dragTarget.value = null;
-  localStorage.setItem('stats-card-order', JSON.stringify(cardOrder.value));
+  const order = cardOrder.value;
+  localStorage.setItem('stats-card-order', JSON.stringify(order));
+  preferencesApi.update({ statsCardOrder: order }).catch(() => {});
 }
 
 // ── Data ──────────────────────────────────────────────────────────────────────
@@ -243,7 +258,7 @@ async function loadAll() {
     loadError.value = e.response?.data?.error ?? e.message;
   } finally { loading.value = false; }
 }
-onMounted(loadAll);
+onMounted(() => { loadAll(); loadPreferences(); });
 
 const sorted = computed(() => [...workouts.value].sort((a, b) => new Date(a.date) - new Date(b.date)));
 const fmt    = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });

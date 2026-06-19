@@ -14,6 +14,7 @@ app.use('/api/workouts', require('./routes/workouts'));
 app.use('/api/workout-logs', require('./routes/workoutLogs'));
 app.use('/api/achievements', require('./routes/achievements'));
 app.use('/api/news',         require('./routes/news'));
+app.use('/api/preferences',  require('./routes/preferences'));
 
 // Serve built frontend in production
 const distPath = path.join(__dirname, '../frontend/dist');
