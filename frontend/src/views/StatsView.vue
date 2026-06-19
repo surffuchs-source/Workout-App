@@ -43,10 +43,15 @@
       <div class="chart-card">
         <div class="chart-card-header">
           <h2>Exercise Progress</h2>
-          <select v-model="selectedExerciseId">
-            <option value="">Select an exercise...</option>
-            <option v-for="ex in allExercises" :key="ex._id" :value="ex._id">{{ ex.name }}</option>
-          </select>
+          <button
+            type="button"
+            class="picker-trigger"
+            :class="{ placeholder: !selectedExerciseId }"
+            @click="pickerOpen = true"
+          >
+            {{ selectedExerciseId ? exerciseName(selectedExerciseId) : 'Select an exercise...' }}
+            <span class="picker-arrow">▾</span>
+          </button>
         </div>
         <div v-if="!selectedExerciseId" class="chart-placeholder">
           Select an exercise above to view its reps and weight progression over time.
@@ -71,6 +76,53 @@
       </div>
     </template>
   </div>
+
+  <Teleport to="body">
+    <div v-if="pickerOpen" class="picker-overlay" @click.self="pickerOpen = false">
+      <div class="picker-modal">
+        <div class="picker-header">
+          <h3>Choose Exercise</h3>
+          <button type="button" class="picker-close" @click="pickerOpen = false">✕</button>
+        </div>
+        <div class="picker-filters">
+          <input v-model="pickerSearch" type="search" placeholder="Search..." class="picker-search" autofocus />
+          <div class="pills">
+            <button
+              v-for="g in ['', ...muscleGroups]" :key="g"
+              type="button"
+              :class="['pill', { active: pickerMuscle === g }]"
+              @click="pickerMuscle = g"
+            >{{ g === '' ? 'All' : capitalize(g) }}</button>
+          </div>
+        </div>
+        <div class="picker-list">
+          <div v-if="pickerResults.length === 0" class="picker-empty">No exercises match.</div>
+          <div v-for="ex in pickerResults" :key="ex._id" class="picker-entry">
+            <div class="picker-row">
+              <button
+                type="button"
+                class="picker-item"
+                :class="{ selected: selectedExerciseId === ex._id }"
+                @click="pickExercise(ex)"
+              >
+                <span class="picker-item-name">{{ ex.name }}</span>
+                <span class="picker-item-meta">{{ capitalize(ex.muscleGroup) }}</span>
+              </button>
+              <button
+                v-if="ex.description"
+                type="button"
+                class="info-btn"
+                :class="{ active: expandedExId === ex._id }"
+                @click.stop="expandedExId = expandedExId === ex._id ? null : ex._id"
+                title="Show description"
+              >ℹ</button>
+            </div>
+            <div v-if="expandedExId === ex._id" class="ex-desc">{{ ex.description }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -92,6 +144,22 @@ const allExercises       = ref([]);
 const loading            = ref(false);
 const loadError          = ref('');
 const selectedExerciseId = ref('');
+
+const muscleGroups  = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'full body', 'cardio'];
+const capitalize    = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const pickerOpen    = ref(false);
+const pickerSearch  = ref('');
+const pickerMuscle  = ref('');
+const expandedExId  = ref(null);
+const pickerResults = computed(() => {
+  let list = allExercises.value;
+  if (pickerMuscle.value) list = list.filter(ex => ex.muscleGroup === pickerMuscle.value);
+  const q = pickerSearch.value.trim().toLowerCase();
+  if (q) list = list.filter(ex => ex.name.toLowerCase().includes(q));
+  return list;
+});
+function pickExercise(ex) { selectedExerciseId.value = ex._id; pickerOpen.value = false; expandedExId.value = null; }
+function exerciseName(id) { return allExercises.value.find(ex => ex._id === id)?.name ?? id; }
 
 async function loadAll() {
   loading.value = true;
@@ -326,7 +394,70 @@ onMounted(loadAll);
   margin-bottom: 1.25rem;
 }
 .chart-card-header h2 { margin-bottom: 0; }
-.chart-card-header select { width: auto; max-width: 220px; }
+.picker-trigger {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 0.4rem 0.75rem; font-size: 0.875rem; color: var(--text); cursor: pointer;
+  max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: border-color 0.15s;
+}
+.picker-trigger:hover { border-color: #7ffc03; }
+.picker-trigger.placeholder { color: var(--text-muted); }
+.picker-arrow { color: var(--text-3); font-size: 0.75rem; flex-shrink: 0; }
+.picker-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 1rem;
+}
+.picker-modal {
+  background: var(--surface); border-radius: 10px;
+  width: 100%; max-width: 560px; max-height: 80vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.picker-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.picker-header h3 { font-size: 1rem; font-weight: 700; }
+.picker-close { background: none; border: none; font-size: 1rem; color: var(--text-3); cursor: pointer; padding: 0.25rem; }
+.picker-filters { padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 0.625rem; }
+.picker-search { width: 100%; }
+.pills { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.pill {
+  padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer;
+}
+.pill:hover { background: var(--surface-alt); }
+.pill.active { background: #7ffc03; color: #111827; border-color: #7ffc03; }
+.picker-list { overflow-y: auto; padding: 0.5rem; }
+.picker-empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.picker-entry { border-radius: 6px; overflow: hidden; }
+.picker-row { display: flex; align-items: center; }
+.picker-row .picker-item { flex: 1; border-radius: 0; }
+.picker-item {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 0.625rem 0.875rem; border-radius: 6px; border: none;
+  background: transparent; text-align: left; cursor: pointer; color: var(--text);
+  transition: background 0.1s;
+}
+.picker-item:hover { background: var(--surface-alt); }
+.picker-item.selected { background: #e8fff0; color: #1a5c00; }
+.picker-item-name { font-size: 0.875rem; font-weight: 500; }
+.picker-item-meta { font-size: 0.75rem; color: var(--text-3); flex-shrink: 0; }
+.info-btn {
+  flex-shrink: 0; width: 2rem; height: 2rem; padding: 0;
+  background: none; border: none; color: var(--text-3);
+  font-size: 0.875rem; cursor: pointer; border-radius: 6px;
+  transition: background 0.1s, color 0.1s;
+}
+.info-btn:hover { background: var(--surface-alt); color: var(--text); }
+.info-btn.active { color: #7ffc03; }
+.ex-desc {
+  font-size: 0.8rem; color: var(--text-2); line-height: 1.55;
+  padding: 0.625rem 0.875rem; background: var(--surface-alt);
+  border-top: 1px solid var(--border);
+}
 .chart-wrap { position: relative; height: 320px; }
 .chart-placeholder { text-align: center; color: var(--text); padding: 3rem 0; font-size: 0.9375rem; }
 
