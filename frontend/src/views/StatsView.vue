@@ -39,6 +39,18 @@
         </div>
       </div>
 
+      <!-- Muscle group donut -->
+      <div class="chart-card donut-card">
+        <h2>Muscle Groups Trained</h2>
+        <div v-if="Object.keys(muscleGroupSets).length === 0" class="chart-placeholder">
+          No data yet.
+          No data yet.
+        </div>
+        <div v-else class="donut-wrap">
+          <Doughnut :data="donutChartData" :options="donutChartOptions" />
+        </div>
+      </div>
+
       <!-- Per-exercise progress -->
       <div class="chart-card">
         <div class="chart-card-header">
@@ -127,17 +139,18 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { Line } from 'vue-chartjs';
+import { Line, Doughnut } from 'vue-chartjs';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
   PointElement, LineElement,
+  ArcElement,
   Title, Tooltip, Legend, Filler,
 } from 'chart.js';
 import { workoutLogsApi, exercisesApi } from '../services/api.js';
 import { isDark } from '../services/useDark.js';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler);
 
 const workouts           = ref([]);
 const allExercises       = ref([]);
@@ -191,6 +204,61 @@ const totalVolume = computed(() =>
 );
 
 const fmt = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+// ── Muscle group donut ────────────────────────────────────────────────────────
+
+const MUSCLE_COLORS = {
+  chest:       '#ef4444',
+  back:        '#3b82f6',
+  shoulders:   '#f97316',
+  arms:        '#8b5cf6',
+  legs:        '#10b981',
+  core:        '#f59e0b',
+  'full body': '#06b6d4',
+  cardio:      '#ec4899',
+};
+
+const muscleGroupSets = computed(() => {
+  const counts = {};
+  for (const w of workouts.value) {
+    for (const entry of w.exercises) {
+      const exId = entry.exercise?._id ?? entry.exercise;
+      const ex   = allExercises.value.find(e => e._id === exId);
+      if (!ex) continue;
+      const group = ex.muscleGroup;
+      counts[group] = (counts[group] ?? 0) + entry.sets.length;
+    }
+  }
+  return counts;
+});
+
+const donutChartData = computed(() => {
+  const entries = Object.entries(muscleGroupSets.value)
+    .sort((a, b) => b[1] - a[1]);
+  return {
+    labels: entries.map(([g]) => capitalize(g)),
+    datasets: [{
+      data:            entries.map(([, v]) => v),
+      backgroundColor: entries.map(([g]) => MUSCLE_COLORS[g] ?? '#94a3b8'),
+      borderWidth: 2,
+      borderColor: 'transparent',
+      hoverOffset: 8,
+    }],
+  };
+});
+
+const donutChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { position: 'right' },
+    tooltip: {
+      callbacks: {
+        label: (ctx) => ` ${ctx.label}: ${ctx.parsed} sets`,
+      },
+    },
+  },
+};
 
 // ── Overview chart ────────────────────────────────────────────────────────────
 
@@ -459,6 +527,8 @@ onMounted(loadAll);
   border-top: 1px solid var(--border);
 }
 .chart-wrap { position: relative; height: 320px; }
+.donut-wrap { position: relative; height: 280px; }
+.donut-card { display: flex; flex-direction: column; }
 .chart-placeholder { text-align: center; color: var(--text); padding: 3rem 0; font-size: 0.9375rem; }
 
 @media (max-width: 600px) {
