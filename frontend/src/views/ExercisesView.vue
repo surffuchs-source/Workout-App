@@ -5,14 +5,24 @@
       <button class="btn-primary" @click="openCreate">+ New Exercise</button>
     </div>
 
+    <input
+      v-model="search"
+      class="search"
+      type="search"
+      placeholder="Search exercises..."
+    />
+
     <p v-if="loadError" class="error">{{ loadError }}</p>
     <div v-if="loading && exercises.length === 0" class="empty">Loading...</div>
     <div v-else-if="exercises.length === 0 && !loading" class="empty">
       No exercises yet. Create one to get started.
     </div>
+    <div v-else-if="filtered.length === 0" class="empty">
+      No exercises match "{{ search }}".
+    </div>
 
     <div v-else class="list">
-      <div v-for="ex in exercises" :key="ex._id" class="card">
+      <div v-for="ex in filtered" :key="ex._id" class="card">
         <div class="card-body">
           <h3>{{ ex.name }}</h3>
           <p class="meta">{{ capitalize(ex.muscleGroup) }} · {{ capitalize(ex.category) }}</p>
@@ -45,12 +55,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import BaseModal    from '../components/BaseModal.vue';
 import ExerciseForm from '../components/ExerciseForm.vue';
 import { exercisesApi } from '../services/api.js';
 
 const exercises = ref([]);
+const search    = ref('');
+const filtered  = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  if (!q) return exercises.value;
+  return exercises.value.filter(ex =>
+    ex.name.toLowerCase().includes(q) ||
+    ex.muscleGroup.toLowerCase().includes(q) ||
+    ex.category.toLowerCase().includes(q)
+  );
+});
 const loading   = ref(false);
 const loadError = ref('');
 const saving    = ref(false);
@@ -101,7 +121,8 @@ onMounted(load);
 </script>
 
 <style scoped>
-.view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+.view-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.search { margin-bottom: 1.25rem; max-width: 360px; }
 .view-header h1 { font-size: 1.5rem; font-weight: 800; }
 .empty { text-align: center; color: var(--text-muted); padding: 3rem; }
 .list { display: grid; gap: 0.75rem; }
