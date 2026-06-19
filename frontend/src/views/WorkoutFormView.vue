@@ -48,12 +48,16 @@
         <div class="row-2">
           <div class="form-group">
             <label>Exercise *</label>
-            <select v-model="entry.exercise" required>
-              <option value="" disabled>Select exercise...</option>
-              <option v-for="ex in allExercises" :key="ex._id" :value="ex._id">
-                {{ ex.name }} ({{ ex.muscleGroup }})
-              </option>
-            </select>
+            <button
+              type="button"
+              class="picker-trigger"
+              :class="{ placeholder: !entry.exercise }"
+              @click="openPicker(eIdx)"
+            >
+              {{ entry.exercise ? exerciseName(entry.exercise) : 'Choose exercise...' }}
+              <span class="picker-arrow">▾</span>
+            </button>
+            <input type="text" :value="entry.exercise" required style="position:absolute;opacity:0;height:0;width:0;pointer-events:none" tabindex="-1" />
           </div>
           <div class="form-group">
             <label>Notes</label>
@@ -106,10 +110,63 @@
       </div>
     </form>
   </div>
+
+  <!-- Exercise picker popup -->
+  <Teleport to="body">
+    <div v-if="pickerIdx !== null" class="picker-overlay" @click.self="pickerIdx = null">
+      <div class="picker-modal">
+        <div class="picker-header">
+          <h3>Choose Exercise</h3>
+          <button type="button" class="picker-close" @click="pickerIdx = null">✕</button>
+        </div>
+        <div class="picker-filters">
+          <input v-model="pickerSearch" type="search" placeholder="Search..." class="picker-search" autofocus />
+          <div class="pills">
+            <button
+              v-for="g in ['', ...muscleGroups]" :key="g"
+              type="button"
+              :class="['pill', { active: pickerMuscle === g }]"
+              @click="pickerMuscle = g"
+            >{{ g === '' ? 'All' : capitalize(g) }}</button>
+          </div>
+        </div>
+        <div class="picker-list">
+          <div v-if="pickerResults.length === 0" class="picker-empty">No exercises match.</div>
+          <button
+            v-for="ex in pickerResults" :key="ex._id"
+            type="button"
+            class="picker-item"
+            :class="{ selected: form.exercises[pickerIdx]?.exercise === ex._id }"
+            @click="pickExercise(ex)"
+          >
+            <span class="picker-item-name">{{ ex.name }}</span>
+            <span class="picker-item-meta">{{ capitalize(ex.muscleGroup) }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
+
+const muscleGroups = ['chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'full body', 'cardio'];
+const capitalize   = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const pickerIdx    = ref(null);
+const pickerSearch = ref('');
+const pickerMuscle = ref('');
+const pickerResults = computed(() => {
+  let list = allExercises.value;
+  if (pickerMuscle.value) list = list.filter(ex => ex.muscleGroup === pickerMuscle.value);
+  const q = pickerSearch.value.trim().toLowerCase();
+  if (q) list = list.filter(ex => ex.name.toLowerCase().includes(q));
+  return list;
+});
+function openPicker(eIdx) { pickerIdx.value = eIdx; pickerSearch.value = ''; pickerMuscle.value = ''; }
+function pickExercise(ex) { form.exercises[pickerIdx.value].exercise = ex._id; pickerIdx.value = null; }
+function exerciseName(id) { return allExercises.value.find(ex => ex._id === id)?.name ?? id; }
 import { useRouter, useRoute } from 'vue-router';
 import { workoutsApi, exercisesApi } from '../services/api.js';
 
@@ -293,4 +350,53 @@ onMounted(async () => {
 
 .form-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 2rem; }
 .empty { text-align: center; color: var(--text-muted); padding: 3rem; }
+
+.picker-trigger {
+  width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center;
+  background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 0.5rem 0.75rem; font-size: 0.875rem; color: var(--text); cursor: pointer;
+  transition: border-color 0.15s;
+}
+.picker-trigger:hover { border-color: #7ffc03; }
+.picker-trigger.placeholder { color: var(--text-muted); }
+.picker-arrow { color: var(--text-3); font-size: 0.75rem; }
+
+.picker-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 1rem;
+}
+.picker-modal {
+  background: var(--surface); border-radius: 10px;
+  width: 100%; max-width: 560px; max-height: 80vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.picker-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.picker-header h3 { font-size: 1rem; font-weight: 700; }
+.picker-close { background: none; border: none; font-size: 1rem; color: var(--text-3); cursor: pointer; padding: 0.25rem; }
+.picker-filters { padding: 0.875rem 1.25rem; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 0.625rem; }
+.picker-search { width: 100%; }
+.pills { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.pill {
+  padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 500;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer;
+}
+.pill:hover { background: var(--surface-alt); }
+.pill.active { background: #7ffc03; color: #111827; border-color: #7ffc03; }
+.picker-list { overflow-y: auto; padding: 0.5rem; }
+.picker-empty { text-align: center; color: var(--text-muted); padding: 2rem; }
+.picker-item {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 0.625rem 0.875rem; border-radius: 6px; border: none;
+  background: transparent; text-align: left; cursor: pointer; color: var(--text);
+  transition: background 0.1s;
+}
+.picker-item:hover { background: var(--surface-alt); }
+.picker-item.selected { background: #e8fff0; color: #1a5c00; }
+.picker-item-name { font-size: 0.875rem; font-weight: 500; }
+.picker-item-meta { font-size: 0.75rem; color: var(--text-3); flex-shrink: 0; }
 </style>
